@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminDashboard from '../../components/AdminDashboard';
+
+// Opcional: Aquí podrías agregar protección de ruta comprobando cookies/sesión
+// si implementas Auth en el futuro.
+---
+
+<Layout title="Panel de Administración - Reservas">
+  <main class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <AdminDashboard client:load />
+  </main>
+</Layout>

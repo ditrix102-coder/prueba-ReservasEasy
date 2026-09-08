@@ -1,0 +1,54 @@
+---
+import Layout from '../layouts/Layout.astro';
+import BookingWidget from '../components/BookingWidget';
+import { supabase } from '../lib/supabase';
+
+// 1. Fetch de servicios activos en SSR
+// Como estamos en el servidor de Astro, esto se ejecuta antes de mandar el HTML al navegador.
+const { data: services, error } = await supabase
+  .from('services')
+  .select('id, name, description, duration_minutes, price')
+  .eq('is_active', true)
+  .order('name');
+
+const initialServices = services || [];
+
+// Nota: En un caso real, el teléfono podría venir de la BD también.
+const businessPhone = "5491112345678"; // Tu número de WhatsApp aquí
+---
+
+<Layout title="Reservas Online - Tu Negocio">
+  <main class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+      {/* Encabezado Opcional del Comercio */}
+      <div class="text-center mb-10">
+        <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl">
+          Peluquería <span className="text-indigo-600">Style</span>
+        </h1>
+        <p class="mt-4 text-lg text-gray-600 max-w-xl mx-auto">
+          Reserva tu turno de forma rápida y sencilla. ¡Te esperamos!
+        </p>
+      </div>
+
+      {/* 
+        Astro Island: BookingWidget
+        client:load le dice a Astro que hidrate este componente en el navegador inmediatamente.
+      */}
+      {error ? (
+        <div class="text-center p-6 bg-red-50 text-red-600 rounded-xl">
+          <p>Error cargando los servicios. Por favor, intenta más tarde.</p>
+        </div>
+      ) : (
+        <BookingWidget 
+          client:load 
+          services={initialServices} 
+          businessPhone={businessPhone} 
+        />
+      )}
+      
+      <div class="mt-12 text-center text-sm text-gray-500">
+        <p>Desarrollado con Astro, React y Supabase 🚀</p>
+      </div>
+    </div>
+  </main>
+</Layout>
