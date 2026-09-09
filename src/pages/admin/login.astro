@@ -1,0 +1,84 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { Scissors } from 'lucide-react';
+
+const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+
+let error = '';
+
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const password = data.get("password");
+    
+    if (password === ADMIN_PASSWORD) {
+      // Configuramos la cookie de sesión de forma segura
+      Astro.cookies.set("admin_session", ADMIN_PASSWORD, { 
+        path: "/", 
+        httpOnly: true, 
+        secure: import.meta.env.PROD, 
+        maxAge: 60 * 60 * 24 * 7 // 1 semana
+      });
+      return Astro.redirect("/admin");
+    } else {
+      error = "Contraseña incorrecta. Intenta nuevamente.";
+    }
+  } catch (e) {
+    error = "Hubo un error procesando la solicitud.";
+  }
+}
+---
+
+<Layout title="Acceso al Panel - Reservas">
+  <main class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="flex justify-center text-indigo-600 mb-6">
+        <Scissors size={48} />
+      </div>
+      <h2 class="mt-2 text-center text-3xl font-extrabold text-gray-900">
+        Área de Administración
+      </h2>
+      <p class="mt-2 text-center text-sm text-gray-600">
+        Ingresa tu contraseña para gestionar tus turnos y configuraciones
+      </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="bg-white py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100">
+        
+        {error && (
+          <div class="mb-6 p-4 bg-red-50 text-red-600 rounded-xl border border-red-200 text-sm font-medium text-center">
+            {error}
+          </div>
+        )}
+
+        <form class="space-y-6" method="POST">
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-700">
+              Contraseña de Acceso
+            </label>
+            <div class="mt-2">
+              <input 
+                id="password" 
+                name="password" 
+                type="password" 
+                required 
+                class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <div>
+            <button 
+              type="submit" 
+              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+            >
+              Entrar al Panel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+</Layout>

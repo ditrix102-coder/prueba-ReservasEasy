@@ -2,41 +2,17 @@
 import Layout from '../../layouts/Layout.astro';
 import AdminDashboard from '../../components/AdminDashboard';
 
-// HTTP Basic Auth Protection
-const ADMIN_USER = import.meta.env.ADMIN_USER || process.env.ADMIN_USER || 'admin';
+// Protección por Cookie
 const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
 
 if (!ADMIN_PASSWORD) {
   return new Response('La contraseña de administrador (ADMIN_PASSWORD) no está configurada en las variables de entorno.', { status: 500 });
 }
 
-const authHeader = Astro.request.headers.get('authorization');
+const session = Astro.cookies.get('admin_session');
 
-if (!authHeader) {
-  return new Response('No autorizado', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="Panel de Administracion"'
-    }
-  });
-}
-
-const [scheme, encoded] = authHeader.split(' ');
-
-if (scheme !== 'Basic' || !encoded) {
-  return new Response('Petición incorrecta', { status: 400 });
-}
-
-const decoded = Buffer.from(encoded, 'base64').toString('utf-8');
-const [username, password] = decoded.split(':');
-
-if (username !== ADMIN_USER || password !== ADMIN_PASSWORD) {
-  return new Response('Credenciales incorrectas', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="Panel de Administracion"'
-    }
-  });
+if (!session || session.value !== ADMIN_PASSWORD) {
+  return Astro.redirect('/admin/login');
 }
 ---
 
