@@ -185,5 +185,132 @@ export const server = {
       }
       return { success: true };
     }
+  }),
+
+  // SERVICES ACTIONS
+  getAdminServices: defineAction({
+    accept: 'json',
+    handler: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error fetching services' });
+      }
+      return { services: data };
+    }
+  }),
+
+  upsertService: defineAction({
+    accept: 'json',
+    input: z.object({
+      id: z.string().uuid().optional(),
+      name: z.string().min(2),
+      duration_minutes: z.number().min(5),
+      price: z.number().min(0).optional(),
+      is_active: z.boolean().default(true)
+    }),
+    handler: async (input) => {
+      const { id, ...serviceData } = input;
+      let query = supabase.from('services');
+      
+      let result;
+      if (id) {
+        result = await query.update(serviceData).eq('id', id).select().single();
+      } else {
+        result = await query.insert([serviceData]).select().single();
+      }
+
+      if (result.error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error saving service' });
+      }
+      return { success: true, service: result.data };
+    }
+  }),
+
+  toggleServiceStatus: defineAction({
+    accept: 'json',
+    input: z.object({
+      id: z.string().uuid(),
+      is_active: z.boolean()
+    }),
+    handler: async (input) => {
+      const { error } = await supabase
+        .from('services')
+        .update({ is_active: input.is_active })
+        .eq('id', input.id);
+
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error toggling service' });
+      }
+      return { success: true };
+    }
+  }),
+
+  // BUSINESS HOURS ACTIONS
+  getAdminBusinessHours: defineAction({
+    accept: 'json',
+    handler: async () => {
+      const { data, error } = await supabase
+        .from('business_hours')
+        .select('*')
+        .order('day_of_week', { ascending: true });
+
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error fetching business hours' });
+      }
+      return { businessHours: data };
+    }
+  }),
+
+  upsertBusinessHour: defineAction({
+    accept: 'json',
+    input: z.object({
+      id: z.string().uuid().optional(),
+      day_of_week: z.number().min(0).max(6),
+      open_time: z.string(),
+      close_time: z.string(),
+      is_closed: z.boolean().default(false)
+    }),
+    handler: async (input) => {
+      const { id, ...hourData } = input;
+      let query = supabase.from('business_hours');
+      
+      let result;
+      // Also prevent duplicate days by checking day_of_week if it's a new insert
+      if (id) {
+        result = await query.update(hourData).eq('id', id).select().single();
+      } else {
+        // Simple upsert based on day_of_week (requires unique constraint in DB, but we just insert for now)
+        // We'll just delete existing for that day to be safe, then insert
+        await supabase.from('business_hours').delete().eq('day_of_week', hourData.day_of_week);
+        result = await query.insert([hourData]).select().single();
+      }
+
+      if (result.error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error saving business hour' });
+      }
+      return { success: true, businessHour: result.data };
+    }
+  }),
+
+  deleteBusinessHour: defineAction({
+    accept: 'json',
+    input: z.object({
+      id: z.string().uuid()
+    }),
+    handler: async (input) => {
+      const { error } = await supabase
+        .from('business_hours')
+        .delete()
+        .eq('id', input.id);
+
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error deleting business hour' });
+      }
+      return { success: true };
+    }
   })
 };
