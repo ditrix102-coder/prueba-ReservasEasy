@@ -110,6 +110,31 @@ export const server = {
       const endTime = format(endTimeDate, 'HH:mm:ss');
       const startTimeFormatted = `${input.startTime}:00`; // Supabase necesita HH:mm:ss
 
+      // 1.5 Protección Anti-Spam (Reservas Masivas)
+      // Buscar las reservas futuras (o de hoy en adelante) asociadas a este teléfono
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingAppointments, error: checkError } = await supabase
+        .from('appointments')
+        .select('appointment_date')
+        .eq('customer_phone', input.customerPhone)
+        .neq('status', 'cancelled')
+        .gte('appointment_date', today);
+
+      if (checkError) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error validando seguridad de la reserva.' });
+      }
+
+      // Regla 1: Máximo 2 reservas pendientes en total
+      if (existingAppointments && existingAppointments.length >= 2) {
+        throw new ActionError({ code: 'FORBIDDEN', message: 'Has alcanzado el límite máximo de 2 reservas pendientes con este número de teléfono.' });
+      }
+
+      // Regla 2: Máximo 1 reserva por día
+      const hasReservationOnSameDay = existingAppointments?.some(appt => appt.appointment_date === input.date);
+      if (hasReservationOnSameDay) {
+        throw new ActionError({ code: 'FORBIDDEN', message: 'Ya tienes un turno reservado para este día. Por favor, elige otra fecha.' });
+      }
+
       // 2. Intentar guardar en Supabase.
       // Gracias al Constraint EXCLUDE en la BD, si alguien más ganó el turno, esto fallará matemáticamente.
       const { data, error } = await supabase
