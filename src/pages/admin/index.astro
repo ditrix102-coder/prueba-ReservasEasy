@@ -2,8 +2,42 @@
 import Layout from '../../layouts/Layout.astro';
 import AdminDashboard from '../../components/AdminDashboard';
 
-// Opcional: Aquí podrías agregar protección de ruta comprobando cookies/sesión
-// si implementas Auth en el futuro.
+// HTTP Basic Auth Protection
+const ADMIN_USER = import.meta.env.ADMIN_USER || process.env.ADMIN_USER || 'admin';
+const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_PASSWORD) {
+  return new Response('La contraseña de administrador (ADMIN_PASSWORD) no está configurada en las variables de entorno.', { status: 500 });
+}
+
+const authHeader = Astro.request.headers.get('authorization');
+
+if (!authHeader) {
+  return new Response('No autorizado', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': 'Basic realm="Panel de Administracion"'
+    }
+  });
+}
+
+const [scheme, encoded] = authHeader.split(' ');
+
+if (scheme !== 'Basic' || !encoded) {
+  return new Response('Petición incorrecta', { status: 400 });
+}
+
+const decoded = Buffer.from(encoded, 'base64').toString('utf-8');
+const [username, password] = decoded.split(':');
+
+if (username !== ADMIN_USER || password !== ADMIN_PASSWORD) {
+  return new Response('Credenciales incorrectas', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': 'Basic realm="Panel de Administracion"'
+    }
+  });
+}
 ---
 
 <Layout title="Panel de Administración - Reservas">
