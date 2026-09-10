@@ -87,9 +87,22 @@ export const server = {
     accept: 'json',
     input: z.object({
       serviceId: z.string().uuid(),
-      customerName: z.string().min(2),
-      customerPhone: z.string().min(5),
-      customerEmail: z.string().email().optional(), // New field
+      customerName: z.string()
+        .min(2, { message: 'El nombre es muy corto' })
+        .refine(val => !/[<>]/.test(val), { message: 'Caracteres HTML no permitidos' })
+        .transform(val => val.trim().replace(/\s+/g, ' ')),
+      customerPhone: z.string()
+        .min(5, { message: 'El teléfono es muy corto' })
+        .transform(val => {
+          const digits = val.replace(/\D/g, '');
+          return digits.slice(-10);
+        }),
+      customerEmail: z.string()
+        .trim()
+        .toLowerCase()
+        .optional()
+        .refine(val => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), { message: 'Correo inválido' })
+        .transform(val => val || undefined),
       date: z.string(), // YYYY-MM-DD
       startTime: z.string(), // HH:mm
     }),
