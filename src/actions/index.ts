@@ -40,18 +40,18 @@ export const server = {
       }
 
       // 3. Obtener turnos ya reservados para ese día
+      // Todos los turnos bloquean el horario hasta que sean borrados explícitamente
       const { data: appointments, error: apptError } = await supabase
         .from('appointments')
         .select('start_time, end_time')
-        .eq('appointment_date', input.date)
-        .neq('status', 'cancelled');
+        .eq('appointment_date', input.date);
 
       if (apptError) {
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error consultando turnos' });
       }
 
-      // 4. Calcular slots disponibles (intervalos de 30 min por defecto, o según servicio)
-      const slots: string[] = [];
+      // 4. Calcular slots disponibles y ocupados
+      const slots: { time: string; isAvailable: boolean }[] = [];
       let currentSlot = parseISO(`${input.date}T${hours.open_time}`);
       const closeTime = parseISO(`${input.date}T${hours.close_time}`);
 
@@ -70,9 +70,10 @@ export const server = {
           return slotStartTimeStr < appt.end_time && slotEndTimeStr > appt.start_time;
         });
 
-        if (!isOverlapping) {
-          slots.push(format(currentSlot, 'HH:mm')); // Devolvemos formato amigable
-        }
+        slots.push({
+          time: format(currentSlot, 'HH:mm'),
+          isAvailable: !isOverlapping
+        });
 
         // Incrementamos el slot (por ejemplo, cada 30 min fijos)
         currentSlot = addMinutes(currentSlot, 30);
@@ -207,6 +208,24 @@ export const server = {
 
       if (error) {
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error updating status' });
+      }
+      return { success: true };
+    }
+  }),
+
+  deleteAppointment: defineAction({
+    accept: 'json',
+    input: z.object({
+      appointmentId: z.string().uuid()
+    }),
+    handler: async (input) => {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', input.appointmentId);
+
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error deleting appointment' });
       }
       return { success: true };
     }

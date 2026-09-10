@@ -14,7 +14,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<{time: string; isAvailable: boolean}[]>([]);
   const [selectedTime, setSelectedTime] = useState<string>('');
   
   // Form fields
@@ -201,15 +201,34 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Selecciona la hora</h3>
             <p className="text-sm text-gray-500 mb-4">Fecha: <span className="font-medium text-indigo-600">{selectedDate}</span></p>
             
+            {/* LEYENDA */}
+            {availableSlots.length > 0 && (
+              <div className="flex items-center gap-4 text-xs font-medium text-gray-600 mb-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-[4px] bg-white border border-gray-300"></div>
+                  <span>Disponible</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-[4px] bg-blue-600"></div>
+                  <span className="text-gray-700">Ocupado</span>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-3">
               {availableSlots.length > 0 ? (
-                availableSlots.map((time) => (
+                availableSlots.map((slot) => (
                   <button
-                    key={time}
-                    onClick={() => handleTimeSelect(time)}
-                    className="py-2.5 px-4 rounded-xl border border-gray-200 text-gray-700 hover:border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all text-center font-medium"
+                    key={slot.time}
+                    onClick={() => slot.isAvailable && handleTimeSelect(slot.time)}
+                    disabled={!slot.isAvailable}
+                    className={`py-2.5 px-4 rounded-xl border transition-all text-center font-medium ${
+                      slot.isAvailable 
+                        ? 'bg-white text-black border-gray-300 hover:border-indigo-600 hover:bg-indigo-600 hover:text-white shadow-sm' 
+                        : 'bg-blue-600 text-white border-blue-600 opacity-90 cursor-not-allowed'
+                    }`}
                   >
-                    {time}
+                    {slot.time}
                   </button>
                 ))
               ) : (
