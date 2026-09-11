@@ -3,8 +3,10 @@ import { Calendar, Scissors, Clock } from 'lucide-react';
 import AppointmentsTab from './admin/AppointmentsTab';
 import ServicesTab from './admin/ServicesTab';
 import BusinessHoursTab from './admin/BusinessHoursTab';
+import HelpTab from './admin/HelpTab';
+import { HelpCircle } from 'lucide-react';
 
-type Tab = 'appointments' | 'services' | 'hours';
+type Tab = 'appointments' | 'services' | 'hours' | 'help';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('appointments');
@@ -50,12 +52,24 @@ export default function AdminDashboard() {
           <Clock size={18} />
           Horarios
         </button>
+        <button
+          onClick={() => setActiveTab('help')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-all ${
+            activeTab === 'help'
+              ? 'bg-indigo-50 text-indigo-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <HelpCircle size={18} />
+          Ayuda
+        </button>
       </div>
 
       <div className="transition-all duration-300 ease-in-out">
         {activeTab === 'appointments' && <AppointmentsTab />}
         {activeTab === 'services' && <ServicesTab />}
         {activeTab === 'hours' && <BusinessHoursTab />}
+        {activeTab === 'help' && <HelpTab />}
       </div>
     </div>
   );
