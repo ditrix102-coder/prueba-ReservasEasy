@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Scissors, Clock, Info, CheckCircle, XCircle, Trash2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Calendar, Scissors, Clock, Info, CheckCircle, XCircle, Trash2, ShieldCheck, AlertTriangle, PlayCircle } from 'lucide-react';
 
 export default function HelpTab() {
   return (
@@ -11,6 +11,28 @@ export default function HelpTab() {
             Manual de uso rápido para administrar ReservasEasy.
           </p>
         </div>
+      </div>
+
+      {/* Banner de Video Tutorial */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h3 className="text-indigo-900 font-bold text-lg mb-1 flex items-center gap-2">
+            <PlayCircle size={20} className="text-indigo-600" />
+            ¿Prefieres un tutorial en video?
+          </h3>
+          <p className="text-indigo-700 text-sm">
+            Mira nuestra guía en video donde te explicamos paso a paso cómo configurar y sacar el máximo provecho de tu sistema de reservas.
+          </p>
+        </div>
+        <a 
+          href="#" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="shrink-0 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium transition-colors shadow-sm w-full sm:w-auto justify-center"
+        >
+          <PlayCircle size={18} />
+          Ver Video Explicativo
+        </a>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
