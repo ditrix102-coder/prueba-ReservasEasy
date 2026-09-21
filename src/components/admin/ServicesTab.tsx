@@ -123,14 +123,14 @@ export default function ServicesTab() {
           <button 
             onClick={fetchServices} 
             disabled={isLoading}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm font-medium shadow-xs"
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm font-medium shadow-sm"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin text-indigo-600" : ""} />
             Actualizar
           </button>
           <button 
             onClick={() => setEditingService({ name: '', duration_minutes: 30, is_active: true })}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium shadow-sm hover:shadow-md active:scale-98"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium shadow-sm hover:shadow-md"
           >
             <Plus size={16} />
             Nuevo Servicio
@@ -139,7 +139,7 @@ export default function ServicesTab() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-rose-50 text-rose-700 rounded-2xl border border-rose-200/80 font-medium text-sm flex items-center gap-2 shadow-xs">
+        <div className="mb-6 p-4 bg-rose-50 text-rose-700 rounded-2xl border border-rose-200/80 font-medium text-sm flex items-center gap-2 shadow-sm">
           <XCircle size={18} /> {error}
         </div>
       )}

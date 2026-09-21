@@ -178,12 +178,12 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
         {/* STEP 2: Date Selector */}
         {step === 2 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="bg-gradient-to-br from-indigo-50/90 to-purple-50/60 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-xs">
+            <div className="bg-gradient-to-br from-indigo-50/90 to-purple-50/60 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 block mb-0.5">Servicio seleccionado</span>
                 <h4 className="text-base font-bold text-gray-900">{selectedService?.name}</h4>
               </div>
-              <span className="px-3 py-1 bg-white text-indigo-700 font-bold text-xs rounded-full shadow-xs border border-indigo-100/80">
+              <span className="px-3 py-1 bg-white text-indigo-700 font-bold text-xs rounded-full shadow-sm border border-indigo-100/80">
                 ⏱️ {selectedService?.duration_minutes} min
               </span>
             </div>
@@ -198,7 +198,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
                   value={selectedDate}
                   onChange={handleDateChange}
                   disabled={isLoading}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/70 hover:bg-white border border-gray-200 focus:border-indigo-500 focus:bg-white rounded-2xl text-gray-800 font-medium focus:ring-4 focus:ring-indigo-500/15 outline-none transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/70 hover:bg-white border border-gray-200 focus:border-indigo-500 focus:bg-white rounded-2xl text-gray-800 font-medium focus:ring-4 focus:ring-indigo-500/15 outline-none transition-all shadow-sm cursor-pointer disabled:opacity-50"
                 />
               </div>
             </div>
