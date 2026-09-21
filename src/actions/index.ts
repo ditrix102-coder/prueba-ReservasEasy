@@ -75,8 +75,8 @@ export const server = {
           isAvailable: !isOverlapping
         });
 
-        // Incrementamos el slot (por ejemplo, cada 30 min fijos)
-        currentSlot = addMinutes(currentSlot, 30);
+        // Incrementamos el slot probando cada 5 minutos para capturar horarios dinámicos (ej: 12:05, 12:35, etc.)
+        currentSlot = addMinutes(currentSlot, 5);
       }
 
       return { slots };
