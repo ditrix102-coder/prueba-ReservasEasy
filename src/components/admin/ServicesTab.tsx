@@ -39,6 +39,13 @@ export default function ServicesTab() {
     fetchServices();
   }, []);
 
+  const [notification, setNotification] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  const showNotification = (type: 'success' | 'error', text: string) => {
+    setNotification({ type, text });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
       const { error: actionError } = await actions.toggleServiceStatus({
@@ -46,18 +53,24 @@ export default function ServicesTab() {
         is_active: !currentStatus
       });
       if (actionError) {
-        alert("Error: " + actionError.message);
+        showNotification('error', "Error: " + actionError.message);
       } else {
         setServices(prev => prev.map(s => s.id === id ? { ...s, is_active: !currentStatus } : s));
+        showNotification('success', "Estado del servicio actualizado");
       }
     } catch (err) {
-      alert("Error al cambiar estado del servicio.");
+      showNotification('error', "Error al cambiar estado del servicio.");
     }
   };
 
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingService?.name || !editingService?.duration_minutes) return;
+
+    if (editingService.duration_minutes < 5) {
+      showNotification('error', "La duración mínima permitida es de 5 minutos.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -70,17 +83,19 @@ export default function ServicesTab() {
       });
 
       if (actionError) {
-        alert("Error: " + actionError.message);
+        showNotification('error', "Error: " + actionError.message);
       } else if (data?.service) {
         if (editingService.id) {
           setServices(prev => prev.map(s => s.id === editingService.id ? data.service as Service : s));
+          showNotification('success', "Servicio modificado con éxito");
         } else {
           setServices(prev => [...prev, data.service as Service].sort((a, b) => a.name.localeCompare(b.name)));
+          showNotification('success', "Nuevo servicio guardado correctamente");
         }
         setEditingService(null);
       }
     } catch (err) {
-      alert("Error al guardar el servicio.");
+      showNotification('error', "Error al guardar el servicio.");
     } finally {
       setIsSaving(false);
     }
@@ -88,20 +103,34 @@ export default function ServicesTab() {
 
   return (
     <div>
+      {/* Toast Notification Banner */}
+      {notification && (
+        <div className={`fixed bottom-6 right-6 z-50 p-4 rounded-2xl shadow-xl border backdrop-blur-md flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-bottom-5 ${
+          notification.type === 'error'
+            ? 'bg-rose-900/90 text-white border-rose-700/50 shadow-rose-900/20'
+            : 'bg-emerald-900/90 text-white border-emerald-700/50 shadow-emerald-900/20'
+        }`}>
+          <div className={`p-1.5 rounded-xl ${notification.type === 'error' ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+            {notification.type === 'error' ? <XCircle size={20} /> : <CheckCircle2 size={20} />}
+          </div>
+          <span className="text-sm font-medium pr-2">{notification.text}</span>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-800">Tus Servicios</h2>
         <div className="flex gap-2">
           <button 
             onClick={fetchServices} 
             disabled={isLoading}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm font-medium shadow-xs"
           >
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+            <RefreshCw size={16} className={isLoading ? "animate-spin text-indigo-600" : ""} />
             Actualizar
           </button>
           <button 
             onClick={() => setEditingService({ name: '', duration_minutes: 30, is_active: true })}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium shadow-sm hover:shadow-md active:scale-98"
           >
             <Plus size={16} />
             Nuevo Servicio
@@ -110,62 +139,86 @@ export default function ServicesTab() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl border border-red-200">
-          {error}
+        <div className="mb-6 p-4 bg-rose-50 text-rose-700 rounded-2xl border border-rose-200/80 font-medium text-sm flex items-center gap-2 shadow-xs">
+          <XCircle size={18} /> {error}
         </div>
       )}
 
       {editingService && (
-        <div className="mb-8 bg-white p-5 rounded-2xl shadow-sm border border-indigo-100">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
-              {editingService.id ? 'Editar Servicio' : 'Crear Nuevo Servicio'}
+        <div className="mb-8 bg-white p-6 rounded-3xl shadow-lg border border-indigo-100/80 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">
+              {editingService.id ? '✏️ Editar Servicio' : '✨ Crear Nuevo Servicio'}
             </h3>
-            <button onClick={() => setEditingService(null)} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => setEditingService(null)} className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
               <XCircle size={20} />
             </button>
           </div>
-          <form onSubmit={handleSaveService} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Nombre del Servicio *</label>
-              <input
-                type="text"
-                required
-                value={editingService.name || ''}
-                onChange={e => setEditingService({...editingService, name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                placeholder="Ej: Corte de Pelo"
-              />
+          <form onSubmit={handleSaveService} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Nombre del Servicio *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingService.name || ''}
+                  onChange={e => setEditingService({...editingService, name: e.target.value})}
+                  className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm"
+                  placeholder="Ej: Corte + Barba"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Duración (minutos) *</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="1"
+                  value={editingService.duration_minutes ?? ''}
+                  onChange={e => setEditingService({...editingService, duration_minutes: parseInt(e.target.value) || 0})}
+                  className={`w-full px-3.5 py-2.5 bg-gray-50/50 border rounded-xl focus:ring-2 outline-none transition-all text-sm font-medium ${
+                    editingService.duration_minutes && editingService.duration_minutes < 5
+                      ? 'border-amber-400 bg-amber-50/30 focus:ring-amber-400 text-amber-900'
+                      : 'border-gray-200 focus:ring-indigo-500 focus:bg-white'
+                  }`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Precio ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editingService.price || ''}
+                  onChange={e => setEditingService({...editingService, price: parseFloat(e.target.value)})}
+                  className="w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm"
+                  placeholder="Ej: 15.00"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Duración (minutos) *</label>
-              <input
-                type="number"
-                required
-                min="5"
-                step="5"
-                value={editingService.duration_minutes || ''}
-                onChange={e => setEditingService({...editingService, duration_minutes: parseInt(e.target.value)})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Precio (Opcional)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={editingService.price || ''}
-                onChange={e => setEditingService({...editingService, price: parseFloat(e.target.value)})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                placeholder="Ej: 15.00"
-              />
-            </div>
-            <div className="flex items-end justify-end mt-2">
+
+            {/* Warning de duración mínima (< 5 min) con animación suave */}
+            {editingService.duration_minutes !== undefined && editingService.duration_minutes < 5 && (
+              <div className="p-3 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex items-center gap-2.5 text-amber-800 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300">
+                <span className="text-base">⚠️</span>
+                <span>
+                  <strong>Nota:</strong> Para garantizar un cálculo fluido de la agenda y evitar colapsos, la duración mínima recomendada es de <strong>5 minutos</strong>.
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingService(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-all shadow-sm disabled:opacity-50"
               >
                 {isSaving ? 'Guardando...' : 'Guardar Servicio'}
               </button>

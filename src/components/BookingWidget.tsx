@@ -139,9 +139,14 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
         
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 text-sm animate-in fade-in slide-in-from-top-2">
-            <AlertTriangle className="shrink-0 mt-0.5" size={18} />
-            <p>{error}</p>
+          <div className="mb-6 p-4 bg-rose-50/90 backdrop-blur-sm border border-rose-200/80 rounded-2xl flex items-start gap-3.5 text-rose-800 text-sm shadow-sm animate-in fade-in slide-in-from-top-3 duration-300">
+            <div className="p-1.5 bg-rose-100 rounded-xl text-rose-600 shrink-0 mt-0.5">
+              <AlertTriangle size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-rose-900 mb-0.5">Atención</p>
+              <p className="text-rose-700 leading-relaxed text-xs sm:text-sm">{error}</p>
+            </div>
           </div>
         )}
 
@@ -153,7 +158,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
               <button
                 key={srv.id}
                 onClick={() => handleServiceSelect(srv)}
-                className="w-full text-left p-4 border border-gray-200 rounded-2xl hover:border-indigo-600 hover:bg-indigo-50 transition-all group"
+                className="w-full text-left p-4 border border-gray-200 rounded-2xl hover:border-indigo-600 hover:bg-indigo-50/60 hover:shadow-sm transition-all group"
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-medium text-gray-900 group-hover:text-indigo-700">{srv.name}</span>
@@ -170,26 +175,38 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
           </div>
         )}
 
-        {/* STEP 2: Date */}
+        {/* STEP 2: Date Selector */}
         {step === 2 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Selecciona la fecha</h3>
-            <p className="text-sm text-gray-500 mb-4">Para: <span className="font-medium text-indigo-600">{selectedService?.name}</span></p>
-            
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="date"
-                min={new Date().toISOString().split('T')[0]} // Solo fechas futuras
-                value={selectedDate}
-                onChange={handleDateChange}
-                disabled={isLoading}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all disabled:opacity-50"
-              />
+          <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-gradient-to-br from-indigo-50/90 to-purple-50/60 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-xs">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 block mb-0.5">Servicio seleccionado</span>
+                <h4 className="text-base font-bold text-gray-900">{selectedService?.name}</h4>
+              </div>
+              <span className="px-3 py-1 bg-white text-indigo-700 font-bold text-xs rounded-full shadow-xs border border-indigo-100/80">
+                ⏱️ {selectedService?.duration_minutes} min
+              </span>
             </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Selecciona la fecha de tu turno</label>
+              <div className="relative group">
+                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 transition-transform group-focus-within:scale-110" size={20} />
+                <input
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]} // Solo fechas futuras
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  disabled={isLoading}
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/70 hover:bg-white border border-gray-200 focus:border-indigo-500 focus:bg-white rounded-2xl text-gray-800 font-medium focus:ring-4 focus:ring-indigo-500/15 outline-none transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                />
+              </div>
+            </div>
+
             {isLoading && (
-              <div className="flex items-center justify-center py-8 text-indigo-600">
-                <Loader2 className="animate-spin" size={24} />
+              <div className="flex flex-col items-center justify-center py-6 text-indigo-600 gap-2 animate-in fade-in">
+                <Loader2 className="animate-spin text-indigo-600" size={28} />
+                <span className="text-xs font-semibold text-indigo-600 animate-pulse">Buscando horarios disponibles...</span>
               </div>
             )}
           </div>
