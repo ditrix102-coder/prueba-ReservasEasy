@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { actions } from 'astro:actions';
-import { Calendar, Clock, User, Phone, Mail, CheckCircle, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, CheckCircle, AlertTriangle, ArrowLeft, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export type Service = {
   id: string;
@@ -16,7 +18,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [availableSlots, setAvailableSlots] = useState<{time: string; isAvailable: boolean}[]>([]);
   const [selectedTime, setSelectedTime] = useState<string>('');
-  const dateInputRef = useRef<HTMLInputElement>(null);
+  const [viewMonth, setViewMonth] = useState(new Date());
   
   // Form fields
   const [customerName, setCustomerName] = useState('');
@@ -49,23 +51,30 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
     setError(null);
   };
 
-  const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const date = e.target.value;
-    setSelectedDate(date);
-    if (!date) return;
-
+  const handleSelectDate = async (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    setSelectedDate(dateStr);
+    
     setIsLoading(true);
     setError(null);
     try {
-      // Llamada a Astro Server Action
       const { data, error: actionError } = await actions.getAvailability({
-        date,
+        date: dateStr,
         serviceId: selectedService!.id
       });
 
       if (actionError) {
         setError(actionError.message);
       } else if (data) {
+        setAvailableSlots(data.slots || []);
+        setStep(3);
+      }
+    } catch (err) {
+      setError("Error al consultar disponibilidad.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
         setAvailableSlots(data.slots || []);
         setStep(3);
       }
@@ -139,6 +148,14 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
     window.open(url, '_blank');
   };
 
+  // Cálculo de días para el calendario
+  const monthStart = startOfMonth(viewMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  const today = startOfDay(new Date());
+
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 transition-all duration-300">
       
@@ -202,38 +219,89 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
           </div>
         )}
 
-        {/* STEP 2: Date Selector */}
+        {/* STEP 2: Custom Visual Calendar */}
         {step === 2 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="bg-gradient-to-br from-indigo-50/90 to-purple-50/60 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-gradient-to-br from-indigo-50/90 to-purple-50/60 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-xs">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 block mb-0.5">Servicio seleccionado</span>
                 <h4 className="text-base font-bold text-gray-900">{selectedService?.name}</h4>
               </div>
-              <span className="px-3 py-1 bg-white text-indigo-700 font-bold text-xs rounded-full shadow-sm border border-indigo-100/80">
+              <span className="px-3 py-1 bg-white text-indigo-700 font-bold text-xs rounded-full shadow-xs border border-indigo-100/80">
                 ⏱️ {selectedService?.duration_minutes} min
               </span>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">Selecciona la fecha de tu turno</label>
-              <div className="relative group">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 transition-transform group-focus-within:scale-110" size={20} />
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={selectedDate}
-                  onChange={handleDateChange}
-                  disabled={isLoading}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/70 hover:bg-white border border-gray-200 focus:border-indigo-500 focus:bg-white rounded-2xl text-gray-800 font-medium focus:ring-4 focus:ring-indigo-500/15 outline-none transition-all shadow-sm cursor-pointer disabled:opacity-50"
-                />
+            {/* CALENDARIO INTERACTIVO CENTRADO */}
+            <div className="bg-white rounded-3xl border border-gray-100 p-4 shadow-lg shadow-indigo-100/50">
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h4 className="text-base font-bold text-gray-900 capitalize flex items-center gap-2">
+                  <Calendar className="text-indigo-600" size={18} />
+                  {format(viewMonth, 'MMMM yyyy', { locale: es })}
+                </h4>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewMonth(subMonths(viewMonth, 1))}
+                    disabled={isSameMonth(viewMonth, new Date())}
+                    className="p-2 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMonth(addMonths(viewMonth, 1))}
+                    className="p-2 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-colors"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Días de la semana */}
+              <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].map((dayName) => (
+                  <span key={dayName} className="text-xs font-bold text-indigo-400 tracking-wider">
+                    {dayName}
+                  </span>
+                ))}
+              </div>
+
+              {/* Grid de días */}
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {calendarDays.map((day) => {
+                  const isPast = isBefore(day, today);
+                  const isCurrentMonth = isSameMonth(day, viewMonth);
+                  const isSelected = selectedDate === format(day, 'yyyy-MM-dd');
+                  const isTodayDate = isSameDay(day, today);
+
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      type="button"
+                      disabled={isPast || !isCurrentMonth || isLoading}
+                      onClick={() => handleSelectDate(day)}
+                      className={`h-10 w-full rounded-2xl flex flex-col items-center justify-center text-xs font-bold transition-all relative ${
+                        isSelected
+                          ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-300 scale-105 z-10'
+                          : isPast || !isCurrentMonth
+                          ? 'text-gray-300 cursor-not-allowed bg-transparent'
+                          : 'text-gray-800 bg-gray-50/70 hover:bg-indigo-50 hover:text-indigo-600 hover:scale-105 active:scale-95 hover:border-indigo-200 border border-transparent'
+                      }`}
+                    >
+                      <span>{format(day, 'd')}</span>
+                      {isTodayDate && !isSelected && isCurrentMonth && (
+                        <span className="w-1 h-1 bg-indigo-600 rounded-full absolute bottom-1"></span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {isLoading && (
-              <div className="flex flex-col items-center justify-center py-6 text-indigo-600 gap-2 animate-in fade-in">
-                <Loader2 className="animate-spin text-indigo-600" size={28} />
+              <div className="flex flex-col items-center justify-center py-4 text-indigo-600 gap-2 animate-in fade-in">
+                <Loader2 className="animate-spin text-indigo-600" size={24} />
                 <span className="text-xs font-semibold text-indigo-600 animate-pulse">Buscando horarios disponibles...</span>
               </div>
             )}
