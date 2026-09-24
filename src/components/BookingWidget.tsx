@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { actions } from 'astro:actions';
-import { Calendar, Clock, User, Phone, CheckCircle, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, CheckCircle, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 
 export type Service = {
   id: string;
@@ -16,6 +16,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [availableSlots, setAvailableSlots] = useState<{time: string; isAvailable: boolean}[]>([]);
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const dateInputRef = useRef<HTMLInputElement>(null);
   
   // Form fields
   const [customerName, setCustomerName] = useState('');
@@ -25,6 +26,21 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
   // States
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-abrir calendario al pasar al paso 2
+  useEffect(() => {
+    if (step === 2 && dateInputRef.current) {
+      try {
+        if ('showPicker' in dateInputRef.current) {
+          dateInputRef.current.showPicker();
+        } else {
+          dateInputRef.current.focus();
+        }
+      } catch (err) {
+        // Ignorar si el navegador bloquea la apertura sin clic directo
+      }
+    }
+  }, [step]);
 
   // Handlers
   const handleServiceSelect = (service: Service) => {
@@ -204,6 +220,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
               <div className="relative group">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 transition-transform group-focus-within:scale-110" size={20} />
                 <input
+                  ref={dateInputRef}
                   type="date"
                   min={new Date().toISOString().split('T')[0]}
                   value={selectedDate}
