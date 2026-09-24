@@ -75,15 +75,6 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
       setIsLoading(false);
     }
   };
-        setAvailableSlots(data.slots || []);
-        setStep(3);
-      }
-    } catch (err) {
-      setError("Error al consultar disponibilidad.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
