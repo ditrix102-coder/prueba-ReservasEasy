@@ -2,6 +2,7 @@ import { ActionError, defineAction } from 'astro:actions';
 import { z } from 'astro:schema';
 import { supabase } from '../lib/supabase';
 import { parseISO, addMinutes, isBefore, format, getDay } from 'date-fns';
+import { sendReservationEmail } from '../lib/email';
 
 export const server = {
   getAvailability: defineAction({
@@ -25,7 +26,6 @@ export const server = {
       const duration = service.duration_minutes;
 
       // 2. Obtener horario del local para ese día
-      // date-fns getDay devuelve 0 (Domingo) a 6 (Sábado)
       const dayOfWeek = getDay(parseISO(input.date));
       
       const { data: hours, error: hoursError } = await supabase
@@ -39,16 +39,26 @@ export const server = {
         return { slots: [], message: 'El local está cerrado este día.' };
       }
 
-      // 3. Obtener turnos ya reservados para ese día
-      // Todos los turnos bloquean el horario hasta que sean borrados explícitamente
-      const { data: appointments, error: apptError } = await supabase
+      // 3. Obtener turnos vigentes para ese día.
+      // Excluimos cancelados y eliminamos el bloqueo de reservas 'pending_transfer' de hace más de 30 minutos.
+      const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      const { data: rawAppointments, error: apptError } = await supabase
         .from('appointments')
-        .select('start_time, end_time')
-        .eq('appointment_date', input.date);
+        .select('start_time, end_time, status, created_at')
+        .eq('appointment_date', input.date)
+        .neq('status', 'cancelled');
 
       if (apptError) {
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error consultando turnos' });
       }
+
+      // Filtrar pendientes vencidas
+      const appointments = (rawAppointments || []).filter(appt => {
+        if (appt.status === 'pending_transfer' && appt.created_at && appt.created_at < thirtyMinsAgo) {
+          return false; // Ignorar el bloqueo porque venció hace más de 30 min
+        }
+        return true;
+      });
 
       // 4. Calcular slots disponibles y ocupados
       const slots: { time: string; isAvailable: boolean }[] = [];
@@ -105,12 +115,13 @@ export const server = {
         .transform(val => val || undefined),
       date: z.string(), // YYYY-MM-DD
       startTime: z.string(), // HH:mm
+      paymentMethod: z.enum(['transfer', 'cash']).default('cash'),
     }),
     handler: async (input) => {
-      // 1. Obtener duración del servicio para calcular el end_time
+      // 1. Obtener datos del servicio para calcular end_time y nombre para el correo
       const { data: service } = await supabase
         .from('services')
-        .select('duration_minutes')
+        .select('name, duration_minutes')
         .eq('id', input.serviceId)
         .single();
 
@@ -122,10 +133,9 @@ export const server = {
       const dummyDate = parseISO(`1970-01-01T${input.startTime}:00`);
       const endTimeDate = addMinutes(dummyDate, service.duration_minutes);
       const endTime = format(endTimeDate, 'HH:mm:ss');
-      const startTimeFormatted = `${input.startTime}:00`; // Supabase necesita HH:mm:ss
+      const startTimeFormatted = `${input.startTime}:00`;
 
       // 1.5 Protección Anti-Spam (Reservas Masivas)
-      // Buscar las reservas futuras (o de hoy en adelante) asociadas a este teléfono
       const today = new Date().toISOString().split('T')[0];
       const { data: existingAppointments, error: checkError } = await supabase
         .from('appointments')
@@ -138,19 +148,19 @@ export const server = {
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error validando seguridad de la reserva.' });
       }
 
-      // Regla 1: Máximo 2 reservas pendientes en total
       if (existingAppointments && existingAppointments.length >= 2) {
         throw new ActionError({ code: 'FORBIDDEN', message: 'Has alcanzado el límite máximo de 2 reservas pendientes con este número de teléfono.' });
       }
 
-      // Regla 2: Máximo 1 reserva por día
       const hasReservationOnSameDay = existingAppointments?.some(appt => appt.appointment_date === input.date);
       if (hasReservationOnSameDay) {
         throw new ActionError({ code: 'FORBIDDEN', message: 'Ya tienes un turno reservado para este día. Por favor, elige otra fecha.' });
       }
 
-      // 2. Intentar guardar en Supabase.
-      // Gracias al Constraint EXCLUDE en la BD, si alguien más ganó el turno, esto fallará matemáticamente.
+      // Determinar estado según método de pago: transfer -> pending_transfer, cash -> confirmed
+      const appointmentStatus = input.paymentMethod === 'transfer' ? 'pending_transfer' : 'confirmed';
+
+      // 2. Guardar en Supabase
       const { data, error } = await supabase
         .from('appointments')
         .insert({
@@ -161,22 +171,34 @@ export const server = {
           appointment_date: input.date,
           start_time: startTimeFormatted,
           end_time: endTime,
-          status: 'confirmed'
+          status: appointmentStatus
         })
         .select()
         .single();
 
       if (error) {
         console.error('Error insertando turno:', error);
-        // Podríamos revisar el código de error de Postgres para ser más específicos
-        // 23P01 es Exclusion violation
         if (error.code === '23P01') {
           throw new ActionError({ code: 'CONFLICT', message: 'Lo sentimos, este turno acaba de ser reservado por otra persona.' });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'No se pudo agendar el turno.' });
       }
 
-      return { success: true, appointment: data };
+      // 3. Enviar correo electrónico de confirmación o instrucciones de transferencia si se ingresó email
+      if (input.customerEmail) {
+        await sendReservationEmail({
+          to: input.customerEmail,
+          customerName: input.customerName,
+          serviceName: service.name,
+          date: input.date,
+          time: input.startTime,
+          paymentMethod: input.paymentMethod,
+          alias: 'reservaseasy.mp',
+          cbu: '00000031000123456789'
+        });
+      }
+
+      return { success: true, appointment: data, status: appointmentStatus };
     }
   }),
 
@@ -184,7 +206,6 @@ export const server = {
   getAppointments: defineAction({
     accept: 'json',
     handler: async () => {
-      // In a real app, verify admin session here
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -211,7 +232,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       appointmentId: z.string().uuid(),
-      status: z.enum(['confirmed', 'cancelled', 'completed'])
+      status: z.enum(['confirmed', 'cancelled', 'completed', 'pending_transfer'])
     }),
     handler: async (input) => {
       const { error } = await supabase

@@ -66,6 +66,19 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
     setError(null);
   };
 
+  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash'>('transfer');
+  const [copiedAlias, setCopiedAlias] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState<string>('confirmed');
+
+  const businessAlias = 'reservaseasy.mp';
+  const businessCbu = '00000031000123456789';
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedAlias(true);
+    setTimeout(() => setCopiedAlias(false), 2500);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -78,19 +91,19 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
         startTime: selectedTime,
         customerName,
         customerPhone,
-        customerEmail
+        customerEmail,
+        paymentMethod
       });
 
       if (actionError) {
-        // Manejo específico del race condition y otros errores
         if (actionError.code === 'CONFLICT') {
            setError("Lo sentimos, este turno acaba de ser reservado por otra persona. Por favor, elige otro horario.");
-           setStep(3); // Volver al selector de horas
-           // Opcional: Re-fetch de la disponibilidad aquí
+           setStep(3);
         } else {
            setError(actionError.message || "Ocurrió un error al agendar.");
         }
       } else if (data?.success) {
+        setBookingStatus(data.status || 'confirmed');
         setStep(5);
       }
     } catch (err) {
@@ -101,15 +114,13 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
   };
 
   const sendWhatsApp = () => {
-    const text = `Hola! Acabo de hacer una reserva para ${selectedService?.name} el ${selectedDate} a las ${selectedTime}. Mi nombre es ${customerName}.`;
+    const isPendingTransfer = bookingStatus === 'pending_transfer';
+    const text = isPendingTransfer
+      ? `Hola! Acabo de hacer una pre-reserva para ${selectedService?.name} el ${selectedDate} a las ${selectedTime}. Adjunto el comprobante de transferencia. Mi nombre es ${customerName}.`
+      : `Hola! Acabo de hacer una reserva para ${selectedService?.name} el ${selectedDate} a las ${selectedTime}. Mi nombre es ${customerName}.`;
+    
     const url = `https://wa.me/${businessPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
-  };
-
-  // Render helpers
-  const goBack = () => {
-    setError(null);
-    if (step > 1) setStep(step - 1);
   };
 
   return (
@@ -118,7 +129,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
       {/* Header */}
       <div className="bg-indigo-600 p-6 text-white text-center relative">
         {step > 1 && step < 5 && (
-          <button onClick={goBack} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/20 rounded-full transition-colors">
+          <button onClick={() => setStep(step - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/20 rounded-full transition-colors">
             <ArrowLeft size={20} />
           </button>
         )}
@@ -194,7 +205,7 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 transition-transform group-focus-within:scale-110" size={20} />
                 <input
                   type="date"
-                  min={new Date().toISOString().split('T')[0]} // Solo fechas futuras
+                  min={new Date().toISOString().split('T')[0]}
                   value={selectedDate}
                   onChange={handleDateChange}
                   disabled={isLoading}
@@ -257,71 +268,133 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
           </div>
         )}
 
-        {/* STEP 4: Form */}
+        {/* STEP 4: Form & Payment Option */}
         {step === 4 && (
           <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in slide-in-from-right-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Tus Datos</h3>
-            <div className="bg-indigo-50 p-4 rounded-xl flex justify-between items-center text-sm mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Tus Datos y Pago</h3>
+            <div className="bg-indigo-50/80 p-4 rounded-2xl flex justify-between items-center text-sm mb-4 border border-indigo-100">
               <div>
-                <p className="font-medium text-indigo-900">{selectedService?.name}</p>
-                <p className="text-indigo-700">{selectedDate} a las {selectedTime}</p>
+                <p className="font-bold text-indigo-900">{selectedService?.name}</p>
+                <p className="text-indigo-700 font-medium text-xs mt-0.5">{selectedDate} a las {selectedTime} hs</p>
               </div>
-              <button type="button" onClick={() => setStep(2)} className="text-indigo-600 hover:underline">Cambiar</button>
+              <button type="button" onClick={() => setStep(2)} className="text-indigo-600 font-semibold text-xs hover:underline">Cambiar</button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  required
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
-                  placeholder="Ej. Juan Pérez"
-                />
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre Completo *</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    required
+                    value={customerName}
+                    onChange={e => setCustomerName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none text-sm"
+                    placeholder="Ej. Juan Pérez"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">WhatsApp *</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="tel"
+                    required
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none text-sm"
+                    placeholder="Ej. +54 9 11 1234 5678"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Email (para enviar comprobante)</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="email"
+                    value={customerEmail}
+                    onChange={e => setCustomerEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none text-sm"
+                    placeholder="Ej. juan@correo.com"
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email (Opcional)</label>
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                <input
-                  type="email"
-                  value={customerEmail}
-                  onChange={e => setCustomerEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
-                  placeholder="Ej. juan@correo.com"
-                />
+            {/* SELECCIÓN DE MÉTODO DE PAGO */}
+            <div className="pt-2 border-t border-gray-100">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-3">Método de Pago / Reserva</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('transfer')}
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    paymentMethod === 'transfer'
+                      ? 'border-indigo-600 bg-indigo-50/80 text-indigo-900 font-semibold ring-2 ring-indigo-500/20'
+                      : 'border-gray-200 bg-gray-50/50 text-gray-600 hover:bg-white'
+                  }`}
+                >
+                  <div className="font-bold text-sm">🏦 Transferencia</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">Alias / CBU</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    paymentMethod === 'cash'
+                      ? 'border-indigo-600 bg-indigo-50/80 text-indigo-900 font-semibold ring-2 ring-indigo-500/20'
+                      : 'border-gray-200 bg-gray-50/50 text-gray-600 hover:bg-white'
+                  }`}
+                >
+                  <div className="font-bold text-sm">💵 En el Local</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">Paga al asistir</div>
+                </button>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="tel"
-                  required
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
-                  placeholder="Ej. +54 9 11 1234 5678"
-                />
+            {/* TARJETA DE DATOS DE TRANSFERENCIA */}
+            {paymentMethod === 'transfer' && (
+              <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-900 text-xs space-y-2.5 animate-in fade-in duration-300">
+                <div className="flex justify-between items-center font-bold text-amber-950">
+                  <span>Datos para transferir la seña:</span>
+                  <span className="bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md font-mono font-bold">15 min gratis</span>
+                </div>
+                <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-amber-200/60 font-mono">
+                  <div>
+                    <span className="text-[10px] text-gray-400 block uppercase font-sans font-semibold">Alias MercadoPago</span>
+                    <span className="font-bold text-sm text-gray-900">{businessAlias}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(businessAlias)}
+                    className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-sans font-semibold text-xs hover:bg-indigo-700 transition-colors"
+                  >
+                    {copiedAlias ? '¡Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-tight">
+                  ⏱️ Tienes <strong>30 minutos</strong> para enviar el comprobante por WhatsApp antes de que el turno se libere automáticamente.
+                </p>
               </div>
-            </div>
+            )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-semibold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-base shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="animate-spin" size={20} /> Procesando...
                 </>
+              ) : paymentMethod === 'transfer' ? (
+                'Pre-reservar y obtener datos de pago'
               ) : (
                 'Confirmar Reserva'
               )}
@@ -329,22 +402,43 @@ export default function BookingWidget({ services, businessPhone = '123456789' }:
           </form>
         )}
 
-        {/* STEP 5: Success */}
+        {/* STEP 5: Success / WhatsApp Redirect */}
         {step === 5 && (
           <div className="text-center py-6 animate-in zoom-in-95 duration-500">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 shadow-sm">
               <CheckCircle size={40} />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">¡Reserva Confirmada!</h3>
-            <p className="text-gray-600 mb-8">
-              Te esperamos el <strong>{selectedDate}</strong> a las <strong>{selectedTime}</strong> para tu {selectedService?.name}.
-            </p>
+            
+            {bookingStatus === 'pending_transfer' ? (
+              <>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">¡Pre-Reserva Registrada!</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Guardamos tu turno para el <strong>{selectedDate}</strong> a las <strong>{selectedTime} hs</strong>.
+                </p>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left text-xs text-amber-900 mb-6 space-y-2">
+                  <p className="font-bold">⚠️ Pasos finales para confirmar:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-amber-800">
+                    <li>Transfiere la seña al Alias: <strong className="font-mono bg-amber-100 px-1 rounded">{businessAlias}</strong></li>
+                    <li>Presiona el botón verde de abajo para enviar el comprobante por WhatsApp.</li>
+                    <li>Tienes <strong>30 minutos</strong> antes de que expire la pre-reserva.</li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">¡Reserva Confirmada!</h3>
+                <p className="text-gray-600 text-sm mb-6">
+                  Te esperamos el <strong>{selectedDate}</strong> a las <strong>{selectedTime} hs</strong> para tu {selectedService?.name}.
+                </p>
+              </>
+            )}
             
             <button
               onClick={sendWhatsApp}
-              className="w-full py-3.5 bg-[#25D366] text-white rounded-xl font-semibold shadow-lg shadow-green-200 hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 bg-[#25D366] text-white rounded-2xl font-bold shadow-lg shadow-green-200 hover:bg-[#128C7E] transition-all flex items-center justify-center gap-2 text-base active:scale-98"
             >
-              <Phone size={20} /> Enviar WhatsApp al local
+              <Phone size={20} /> 
+              {bookingStatus === 'pending_transfer' ? 'Enviar Comprobante por WhatsApp' : 'Enviar WhatsApp al local'}
             </button>
           </div>
         )}

@@ -11,7 +11,7 @@ type Appointment = {
   customer_email: string | null;
   appointment_date: string;
   start_time: string;
-  status: 'confirmed' | 'cancelled' | 'completed';
+  status: 'confirmed' | 'cancelled' | 'completed' | 'pending_transfer';
   services: { name: string } | null;
 };
 
@@ -42,7 +42,7 @@ export default function AppointmentsTab() {
     fetchAppointments();
   }, []);
 
-  const handleStatusChange = async (id: string, newStatus: 'confirmed' | 'cancelled' | 'completed') => {
+  const handleStatusChange = async (id: string, newStatus: 'confirmed' | 'cancelled' | 'completed' | 'pending_transfer') => {
     setIsUpdating(id);
     try {
       const { error: actionError } = await actions.updateAppointmentStatus({
@@ -82,9 +82,10 @@ export default function AppointmentsTab() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'confirmed': return <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold uppercase tracking-wider">Reserva</span>;
-      case 'cancelled': return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold uppercase tracking-wider">Cancelado</span>;
-      case 'completed': return <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold uppercase tracking-wider">Terminado</span>;
+      case 'confirmed': return <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider">Confirmado</span>;
+      case 'pending_transfer': return <span className="px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">⚠️ Pendiente Transferencia</span>;
+      case 'cancelled': return <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-semibold uppercase tracking-wider">Cancelado</span>;
+      case 'completed': return <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold uppercase tracking-wider">Terminado</span>;
       default: return null;
     }
   };
